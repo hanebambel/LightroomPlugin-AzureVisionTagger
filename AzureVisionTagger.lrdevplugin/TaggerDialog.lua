@@ -9,12 +9,12 @@ local LrPathUtils = import 'LrPathUtils'
 local prefs = import 'LrPrefs'.prefsForPlugin(_PLUGIN.id)
 local LrTasks = import 'LrTasks'
 local LrView = import "LrView"
-local ClarifaiAPI = require 'ClarifaiAPI'
+local AzureVisionApi = require 'AzureVisionAPI'
 local KwUtils = require 'KwUtils'
 local LUTILS = require 'LUTILS'
 
-local logger = LrLogger('ClarifaiAPI')
-logger:enable('print')
+local logger = LrLogger('AzureVisionAPI')
+logger:enable('logfile')
 
 -----------------------------------------
 -- Returns a checkbox label used in the dialog. i, j, and k are normally all integers
@@ -79,16 +79,22 @@ local function makeWindow(catalog, photos, json)
       for i, photo in ipairs(photos) do
          --  local keywords = json['results'][i]['result']['tag']['classes']
          --  local probs    = json['results'][i]['result']['tag']['probs']
-         logger:info(' concepts ', i);
-         local keywords = {}
-         local probs    = {}
-         local concepts = json['outputs'][i]['data']['concepts']
-         for i, concept in ipairs(concepts) do
-            -- logger:info(' concepts: ', concept['name'])
-            table.insert(keywords, concept['name'])
-            table.insert(probs, concept['value'])
+         logger:info(' avTags ', i);
+         local keywords = {} -- The tag as received from azure
+         local probs    = {} -- The confidence of the tag
+         local captions = {}
+
+         local avTags = json[i]['tags']
+         for i, tag in ipairs(avTags) do
+            logger:info(' tag: ', tag['name'])
+            table.insert(keywords, tag['name'])
+            table.insert(probs, tag['confidence'])
          end
 
+         local avCaption  = json[i]['description']['captions']
+         for l, caption in ipairs(avCaption) do
+            table.insert( captions, caption['text'] )
+         end
 
          local tbl = {
             spacing = f:label_spacing(8),
@@ -98,6 +104,12 @@ local function makeWindow(catalog, photos, json)
                photo = photo,
             }
          }
+
+         tbl[#tbl +1] = f:static_text {
+            title = table.concat(captions, ', '),
+            text_color = LrColor(0.3, 0.3, 0.3),
+         }
+
          local previewWidth = prefs.imagePreviewWindowWidth;
          local previewHeight = prefs.imagePreviewWindowHeight;
          local previewButtonTt = "Open larger preview (in " .. previewWidth .. " x " .. previewHeight .. "px window)";
@@ -136,10 +148,14 @@ local function makeWindow(catalog, photos, json)
                if boldExistingKeywords then
                   boldKeyword = kwExists
                end
-               -- Probability from Clarifai actually expressed as fraction of one.
+               -- Probability from Azure actually expressed as fraction of one.
                local prob = tonumber(probs[j]) * 100
-               if autoSelectExistingKeywords and prob >= tonumber(prefs.autoSelectProbabilityThreshold) then
-                  selectKeyword = kwExists
+               if autoSelectExistingKeywords and tonumber(prob) >= tonumber(prefs.autoSelectProbabilityThreshold) then
+                  if prefs.alsoSelectNewKeywords then 
+                     selectKeyword = true
+                  else
+                     selectKeyword = kwExists
+                  end
                end
             end
             if numKeysByName ~= false then
@@ -151,7 +167,7 @@ local function makeWindow(catalog, photos, json)
             else
                local k = 0
                -- It is a new keyword so will not be selected automatically
-               properties[getCheckboxLabel(i, j, k)] = false
+               properties[getCheckboxLabel(i, j, k)] = selectKeyword --false
                tbl[#tbl + 1] = makeCheckbox(i, j, k, keywords[j], probs[j], boldKeyword, showProbability)
             end
          end
@@ -180,7 +196,7 @@ local function makeWindow(catalog, photos, json)
       }
 
       local result = LrDialogs.presentModalDialog({
-         title = LOC '$$$/ClarifaiTagger/TaggerWindow/Title=Clarifai Tagger',
+         title = LOC '$$$/AzureVisionTagger/TaggerWindow/Title=AzureVision Tagger',
          contents = contents,
          actionVerb = 'Save',
       })
@@ -191,12 +207,41 @@ local function makeWindow(catalog, photos, json)
                for i, photo in ipairs(photos) do
                   -- local keywords = json['results'][i]['result']['tag']['classes']
 
+                  
+                  -- Description: Captions
+                  local captions = json[i]['description']['captions']
+                  for i, caption in ipairs(captions) do
+                     --local _cap = photo:setPropertyForPlugin(_PLUGIN.id, 'azureVisionCaption', caption)
+                     photo:setPropertyForPlugin(_PLUGIN, 'azureVisionCaption', caption['text'])
+                  end
+
+                  -- Description: Tags
+                  local tags = {}
+                  local avTags = json[i]['description']['tags']
+                  for m, tag in ipairs(avTags) do
+                     table.insert( tags, tag )
+                  end
+                  photo:setPropertyForPlugin(_PLUGIN, 'azureVisionTags', table.concat(tags, ', '))
+
+                  -- Colors
+                  local colors = {}
+                  local avColors = json[i]['color']['dominantColors']
+                  for n, color in ipairs(avColors) do
+                     table.insert( colors, color )
+                  end
+                  photo:setPropertyForPlugin(_PLUGIN, 'azureVisionColors', table.concat(colors, ', '))
+                  
+                  -- Azure Vision API Request Metadata
+                  photo:setPropertyForPlugin(_PLUGIN, 'azureVisionRequestID', json[i]['requestId'])
+                  photo:setPropertyForPlugin(_PLUGIN, 'azureVisionRequestTS', string.format('%s', os.date('%Y-%m-%d %H:%M:%S')))
+
+
                   local keywords = {}
                   -- local probs    = {}
-                  local concepts = json['outputs'][i]['data']['concepts']
-                  for i, concept in ipairs(concepts) do
-                     logger:info(' concepts: ', concept['name'])
-                     table.insert(keywords, concept['name'])
+                  local avTags = json[i]['tags']
+                  for i, tag in ipairs(avTags) do
+                     logger:info(' avTags: ', tag['name'])
+                     table.insert(keywords, tag['name'])
                     --  table.insert(probs, concept['value'])
                   end
 
@@ -284,8 +329,8 @@ LrTasks.startAsyncTask(function()
 
    local limitSize = 128 -- currently Clarifai's max_batch_size
    if #photos > limitSize then
-      local message = LOC '$$$/ClarifaiTagger/TaggerWindow/ExceedsBatchSizeMessage=Selected photos execeeds the limit (%d).'
-      local info = LOC '$$$/ClarifaiTagger/TaggerWindow/ExceedsBatchSizeInfo=%d photos are selected currently.'
+      local message = LOC '$$$/AzureVisionTagger/TaggerWindow/ExceedsBatchSizeMessage=Selected photos execeeds the limit (%d).'
+      local info = LOC '$$$/AzureVisionTagger/TaggerWindow/ExceedsBatchSizeInfo=%d photos are selected currently.'
       LrDialogs.message(string.format(message, limitSize), string.format(info, #photos), 'warning')
       return
    end
@@ -308,10 +353,10 @@ LrTasks.startAsyncTask(function()
        end
 
        LrTasks.startAsyncTask(function()
-             local message = LOC '$$$/ClarifaiTagger/TaggerWindow/ProcessingMessage=Sending thumbnails of the selected photos...'
+             local message = LOC '$$$/AzureVisionTagger/TaggerWindow/ProcessingMessage=Sending thumbnails of the selected photos...'
              LrDialogs.showBezel(message, 2)
 
-             local json = ClarifaiAPI.getTags(photos, thumbnailPaths)
+             local json = AzureVisionApi.getTags(photos, thumbnailPaths)
 
              -- Populate the KwUtils.catKws and KwUtils.catKwPaths tables
              local allKeys = KwUtils.getAllKeywords(catalog)
