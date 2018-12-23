@@ -14,7 +14,21 @@ local KwUtils = require 'KwUtils'
 local LUTILS = require 'LUTILS'
 
 local logger = LrLogger('AzureVisionAPI')
-logger:enable('logfile')
+--logger:enable('logfile')
+
+-- Returns deduplicatedd table
+local function dedupTable(input)
+   local hash = {}
+   local res = {}
+
+   for _,v in ipairs(input) do
+      if (not hash[v]) then
+         res[#res+1] = v
+         hash[v] = true
+      end
+   end
+   return res
+end
 
 -----------------------------------------
 -- Returns a checkbox label used in the dialog. i, j, and k are normally all integers
@@ -79,14 +93,12 @@ local function makeWindow(catalog, photos, json)
       for i, photo in ipairs(photos) do
          --  local keywords = json['results'][i]['result']['tag']['classes']
          --  local probs    = json['results'][i]['result']['tag']['probs']
-         logger:info(' avTags ', i);
          local keywords = {} -- The tag as received from azure
          local probs    = {} -- The confidence of the tag
          local captions = {}
 
          local avTags = json[i]['tags']
          for i, tag in ipairs(avTags) do
-            logger:info(' tag: ', tag['name'])
             table.insert(keywords, tag['name'])
             table.insert(probs, tag['confidence'])
          end
@@ -215,6 +227,8 @@ local function makeWindow(catalog, photos, json)
                      photo:setPropertyForPlugin(_PLUGIN, 'azureVisionCaption', caption['text'])
                   end
 
+                  
+
                   -- Description: Tags
                   local tags = {}
                   local avTags = json[i]['description']['tags']
@@ -231,9 +245,34 @@ local function makeWindow(catalog, photos, json)
                   end
                   photo:setPropertyForPlugin(_PLUGIN, 'azureVisionColors', table.concat(colors, ', '))
                   
+                  -- Celebrities & Landmarks
+                  local celebrities = {}
+                  local landmarks = {}
+                  local categories = json[i]['categories']
+                  for o, categorie in ipairs(categories) do
+                     if categorie['detail'] ~= nil then
+                        local celebs = categorie['detail']['celebrities']
+                        if celebs ~= nil then
+                           for _, celeb in ipairs(celebs) do
+                              table.insert( celebrities, celeb['name'] )
+                           end
+                        end
+
+                        local landms = categorie['detail']['landmarks']
+                        if landms ~= nil then
+                           for _, landm in ipairs(landms) do
+                              table.insert( landmarks, landm['name'] )
+                           end
+                        end
+                     end   
+                  end
+                  photo:setPropertyForPlugin(_PLUGIN, 'azureVisionCelebrities', table.concat(dedupTable(celebrities), ', '))
+                  photo:setPropertyForPlugin(_PLUGIN, 'azureVisionLandmarks', table.concat(dedupTable(landmarks), ', '))
+
                   -- Azure Vision API Request Metadata
                   photo:setPropertyForPlugin(_PLUGIN, 'azureVisionRequestID', json[i]['requestId'])
                   photo:setPropertyForPlugin(_PLUGIN, 'azureVisionRequestTS', string.format('%s', os.date('%Y-%m-%d %H:%M:%S')))
+
 
 
                   local keywords = {}

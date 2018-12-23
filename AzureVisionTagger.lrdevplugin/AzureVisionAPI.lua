@@ -8,7 +8,7 @@ local JSON = require 'JSON'
 local prefs = import 'LrPrefs'.prefsForPlugin(_PLUGIN.id)
 
 local logger = LrLogger('AzureVisionAPI')
-logger:enable('logfile')
+--logger:enable('logfile')
 
 
 local tagAPIURL   = prefs.visionBaseURL .. 'vision/v2.0/analyze'
@@ -23,11 +23,8 @@ function AzureVisionAPI.getTags_impl(photos, thumbnailPaths)
     local resStatus = 200
     local visualFeatures = 'Categories,Tags,Description,Color&Details=Celebrities,Landmarks'
     tagAPIURL = tagAPIURL .. '?Visualfeatures=' .. visualFeatures
-    logger:info('Visualfeatures: ' ..  visualFeatures)
-    logger:info('URL: ' .. tagAPIURL)
     local headers = {
        { field = 'Ocp-Apim-Subscription-Key', value = prefs.visionKey },
-    --   { field = 'visualFeatures', value = visualFeatures },
        { field = 'Content-Type', value = 'application/octet-stream' }
     };
 
@@ -55,7 +52,6 @@ function AzureVisionAPI.getTags_impl(photos, thumbnailPaths)
 end
 
 function AzureVisionAPI.getTags(photos, thumbnailPaths)
-  logger:info('AzureVisionAPI.getTags') 
    local json, status = AzureVisionAPI.getTags_impl(photos, thumbnailPaths);
    return json
 end

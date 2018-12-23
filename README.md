@@ -66,8 +66,8 @@ AzureVision Tagger writes additional Metadata retrived from Azure to your Catalo
     ![](Images/azure_vision_metadata.png)
 
 * **Caption**: the first Caption as retrived from the [Describe Image Api](https://westus.dev.cognitive.microsoft.com/docs/services/5adf991815e1060e6355ad44/operations/56f91f2e778daf14a499e1fe)
-* **Celebrities**: comma seperated list of found celebrities **NOT YET IMPLEMENTED**
-* **Landmarks**: comma seperated list of found landmarks **NOT YET IMPLEMENTED**
+* **Celebrities**: comma seperated list of found celebrities 
+* **Landmarks**: comma seperated list of found landmarks 
 * **Colors**: dominat colors as delovered from [Analyze Image Api](https://westus.dev.cognitive.microsoft.com/docs/services/5adf991815e1060e6355ad44/operations/56f91f2e778daf14a499e1fa)
 * **Tags**: comma seperated list of tags as delivered from [Describe Image Api](https://westus.dev.cognitive.microsoft.com/docs/services/5adf991815e1060e6355ad44/operations/56f91f2e778daf14a499e1fe) *these are not identical to the keywords!*
 
