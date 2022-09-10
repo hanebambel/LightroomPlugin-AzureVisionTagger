@@ -11,7 +11,7 @@ local logger = LrLogger('AzureVisionAPI')
 --logger:enable('logfile')
 
 
-local tagAPIURL   = prefs.visionBaseURL .. 'vision/v2.0/analyze'
+local tagAPIURL   = prefs.visionBaseURL .. 'vision/v2.1/analyze'
 
 --------------------------------
 
@@ -21,7 +21,8 @@ function AzureVisionAPI.getTags_impl(photos, thumbnailPaths)
     logger:info('AzureVisionAPI.getTags_impl')
     local jsonResults = {}
     local resStatus = 200
-    local visualFeatures = 'Categories,Tags,Description,Color&Details=Celebrities,Landmarks'
+--    local visualFeatures = 'Categories,Tags,Description,Color&Details=Celebrities,Landmarks'
+    local visualFeatures = 'Categories,Tags,Description,Color'
     tagAPIURL = tagAPIURL .. '?Visualfeatures=' .. visualFeatures
     local headers = {
        { field = 'Ocp-Apim-Subscription-Key', value = prefs.visionKey },
