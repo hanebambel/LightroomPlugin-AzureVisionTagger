@@ -42,6 +42,7 @@ function AzureVisionTaggerInfoProvider.sectionsForTopOfDialog(viewFactory, prope
                alignment = 'left',
                value = bind { key = 'visionKey', object = prefs },
             },
+            
          },
 
          viewFactory:row {
@@ -85,6 +86,22 @@ function AzureVisionTaggerInfoProvider.sectionsForTopOfDialog(viewFactory, prope
               },
               value = bind { key = 'visionBaseURL', object = prefs },
             },
+         },
+         viewFactory:row {
+            spacing = viewFactory:control_spacing(),
+
+            viewFactory:static_text {
+               title = LOC '$$$/AzureVisionTagger/Settings/visionApi=Celebrity detection requires special access (https://aka.ms/celebrityrecognition):',
+               alignment = 'left',
+               width = share 'title_width',
+            },
+
+            viewFactory:checkbox {
+               title = LOC '$$$/AzureVisionTagger/Settings/requestCelebrities=Request celebrities',
+               tooltip = "Selecting this option will celebrities from the Azure Vision API",
+               value = bind { key = 'requestCelebrities', object = prefs },
+            },
+
          },
 
         

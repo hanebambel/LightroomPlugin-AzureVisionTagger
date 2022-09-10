@@ -21,8 +21,12 @@ function AzureVisionAPI.getTags_impl(photos, thumbnailPaths)
     logger:info('AzureVisionAPI.getTags_impl')
     local jsonResults = {}
     local resStatus = 200
---    local visualFeatures = 'Categories,Tags,Description,Color&Details=Celebrities,Landmarks'
-    local visualFeatures = 'Categories,Tags,Description,Color'
+    local visualFeatures = 'Categories,Tags,Description,Color&Details=Landmarks'
+
+    if (prefs.requestCelebrities == true) then
+      visualFeatures = visualFeatures .. ',Celebrities,'
+    end  
+      
     tagAPIURL = tagAPIURL .. '?Visualfeatures=' .. visualFeatures
     local headers = {
        { field = 'Ocp-Apim-Subscription-Key', value = prefs.visionKey },
